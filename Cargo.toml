@@ -1,0 +1,90 @@
+cargo-features = ["profile-rustflags"]
+debug-assertions = false
+
+[package]
+name = "balloon-v2"
+version = "0.1.0"
+authors = ["NexusXe <andastrike@gmail.com>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+build = "build.rs"
+
+[[bin]]
+name = "balloon-v2"
+test = false
+bench = false
+
+[dependencies]
+panic-halt = "0.2.0"
+ufmt = "0.2.0"
+nb = "1.1.0"
+embedded-hal = "0.2.3"
+#libudev-sys = "0.1"
+avr-device = "0.5.1"
+libm = "0.2.7"
+apollo = { git = "https://github.com/NexusXe/libapollo" }
+rand = { version = "0.8.5", features = ["small_rng"], default-features = false }
+
+[dependencies.arduino-hal]
+git = "https://github.com/rahix/avr-hal"
+rev = "7dfa6d322b9df98b2d98afe0e14a97afe0187ac1"
+features = ["arduino-mega2560"]
+
+# Configure the build for minimal size - AVRs have very little program memory
+[profile.dev]
+opt-level = 1
+debug = true
+debug-assertions = false
+overflow-checks = false
+lto = false
+panic = "abort"
+incremental = true
+codegen-units = 16
+
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+debug = false
+strip = true
+lto = true
+opt-level = 2
+rustflags = [
+    "-C", "inline-threshold=25"
+]
+
+[profile.dev.package."*"] # +
+debug = true
+strip = false
+codegen-units = 1
+opt-level = 2
+rustflags = [
+    "-C", "inline-threshold=25"
+]
+
+[profile.release.package."*"] # +
+codegen-units = 1
+debug = false
+strip = true
+opt-level = 2
+rustflags = [
+    "-C", "inline-threshold=25"
+]
+
+[profile.dev.build-override]
+codegen-units = 1
+debug = false
+strip = true
+opt-level = 2
+rustflags = [
+    "-C", "inline-threshold=25"
+]
+
+[profile.release.build-override]
+codegen-units = 1
+debug = false
+strip = true
+opt-level = 3
+rustflags = [
+    "-C", "inline-threshold=25"
+]
