@@ -22,7 +22,7 @@ embedded-hal = "0.2.3"
 #libudev-sys = "0.1"
 avr-device = "0.5.1"
 libm = "0.2.7"
-apollo = { git = "https://github.com/NexusXe/libapollo" }
+apollo = { path = "../apollo" }
 rand = { version = "0.8.5", features = ["small_rng"], default-features = false }
 
 [dependencies.arduino-hal]

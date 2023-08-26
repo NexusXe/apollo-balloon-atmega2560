@@ -4,32 +4,34 @@
 #![feature(abi_avr_interrupt)]
 #![feature(asm_experimental_arch)]
 #![feature(nonzero_ops)]
+#![feature(asm_const)]
 
 use core::intrinsics::*;
-use core::num::*;
+
 extern crate libm;
 use panic_halt as _;
 use core::arch::asm;
 use arduino_hal::{simple_pwm::{self, IntoPwmPin}, delay_ms, prelude::*};
 
 extern crate apollo; // takes up roughly 8.7K of flash
-use apollo::{parameters, generate_packet};
+use apollo::{generate_packet, telemetry::BlockStackData, parameters::TOTAL_MESSAGE_LENGTH_BYTES};
 
 mod sensors;
 
 
 #[macro_export]
-#[inline(never)]
 macro_rules! transmit_packet {
     ($packet: expr, $txpin: expr, $ledpin: expr, $serial: expr) => {
         $txpin.set_duty(127);
         for mut _byte in $packet.iter() {
             for _bit in 0..8 {
+                let mut _w: u8 = 2;
                 match _byte & (1 << _bit) { 
                     0 => {
                         $txpin.disable();
                         $ledpin.set_low();
-                        ufmt::uwrite!(&mut $serial, "0").void_unwrap();
+                        _w = 0;
+                        //ufmt::uwrite!(&mut $serial, "0").void_unwrap();
                         //delay_ms(1000u16/parameters::BAUDRATE);
                         $txpin.disable();
                         $ledpin.set_low();
@@ -37,20 +39,23 @@ macro_rules! transmit_packet {
                     _ => {
                         $txpin.enable();
                         $ledpin.set_high();
-                        ufmt::uwrite!(&mut $serial, "1").void_unwrap();
+                        _w = 1;
+                        //ufmt::uwrite!(&mut $serial, "1").void_unwrap();
                         //delay_ms(1000u16/parameters::BAUDRATE);
                         $txpin.disable();
                         $ledpin.set_low();
                     }
                 }
+                ufmt::uwrite!(&mut $serial, "{}", _w).void_unwrap();
             }
         }
         ufmt::uwriteln!(&mut $serial, "").void_unwrap();
     };
 }
 
-#[inline(never)]
-fn no_operation(count: usize) {
+
+// #[inline(never)]
+fn _no_operation(count: usize) {
     for _ in 0..count {
         unsafe { asm!("nop"); }
     }
@@ -65,7 +70,7 @@ fn main() -> ! {
     let mut txpin = pins.d11.into_output().into_pwm(&timer1);
     let mut ledpin = pins.d13.into_output().downgrade();
 
-    let ready_indicator = pins.d52.into_floating_input();
+    // let ready_indicator = pins.d52.into_floating_input();
 
     let mut serial = arduino_hal::default_serial!(dp, pins, 115200);
     
@@ -84,13 +89,17 @@ fn main() -> ! {
 
 
     loop {
-        let mut _packet = generate_packet(sensors::get_location, sensors::get_altitude, sensors::get_voltage, sensors::get_temperature);
+        let location = sensors::get_location();
+        let mut _packet = generate_packet(BlockStackData { data_arr: [sensors::get_altitude(), sensors::get_voltage(), sensors::get_temperature(), location.0, location.1] });
         for x in _packet.iter() {
             ufmt::uwrite!(&mut serial, "{:x} ", *x).void_unwrap();
         }
         ufmt::uwriteln!(&mut serial, "").void_unwrap();
         transmit_packet!(_packet, txpin, ledpin, serial);
-        
+        // let dense_bools = expand_transmit_ident(0b11001101);
+        // for i in dense_bools {
+        //     ufmt::uwriteln!(&mut serial, "{:?}", i).void_unwrap();
+        // }
     }
  }
 
